@@ -1,40 +1,343 @@
-import Image from 'next/image'
+'use client'
+import { useEffect, useRef, useState } from 'react';
+import { Download } from 'lucide-react';
+import { Dollar, type PaymentDetails } from '@/lib/mortgage';
+import { useLanguage } from '@/lib/i18n';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { LanguageToggle } from '@/components/language-toggle';
+import { PaymentsBreakdown, type PaymentsBreakdownHandle } from '@/components/payments-breakdown';
 
-export default function Home() {
+const Home=() => {
+  const { t } = useLanguage();
+  const breakdownRef = useRef<PaymentsBreakdownHandle>(null);
+  const [mortgageAmount, setMortgageAmount] = useState(0);
+  const [interestRate, setInterestRate] = useState(0);
+  const [mortgageLength, setMortgageLength] = useState(0);
+  const [monthlyPayment, setMonthlyPayment] = useState(0);
+  const [details, setDetails] = useState<PaymentDetails[]>([]);
+  const [fullInterestPaymentNAP, setFullInterestPaymentNAP] = useState(0);
+  const [fullInterestPaymentWAP, setFullInterestPaymentWAP] = useState(0);
+  const [monthlyAdditionalPayment, setMonthlyAdditionalPayment] = useState(0);
+
+  useEffect(()=>{
+    if(mortgageAmount > 0 && interestRate > 0 && mortgageLength > 0) {
+      const pmt = () =>{
+        //https://superuser.com/questions/871404/what-would-be-the-the-mathematical-equivalent-of-this-excel-formula-pmt
+        const p = Number(mortgageAmount);
+        const r = Number(interestRate)/100;
+        const t = Number(mortgageLength);
+        const n = 12;
+        const a = p * (r/n);
+        const b = 1-(1/(Math.pow(1+(r/n),n*t)));
+        const monthlyPayment = a/b;
+        return Number(monthlyPayment.toFixed(2) || 0);
+      }
+      setMonthlyPayment(pmt());
+    } else {
+      setMonthlyPayment(0);
+    }
+  },[mortgageAmount, interestRate, mortgageLength]);
+
+  useEffect(()=>{
+    if(monthlyPayment && mortgageLength && monthlyPayment && interestRate){
+      const details: PaymentDetails[]= [];
+      let balanceNAP = 0;
+      let balanceWAP = 0;
+      let interestNAP = 0;
+      let interestWAP = 0;
+      let decreaseNAP = 0;
+      let decreaseWAP = 0;
+      let remainingBalanceNAP = mortgageAmount;
+      let remainingBalanceWAP = mortgageAmount;
+      let tempFullInterestPaymentNAP = 0;
+      let tempFullInterestPaymentWAP = 0;
+
+      for(let i=0 ; i<(mortgageLength*12) ; i++) {
+
+        balanceNAP = remainingBalanceNAP;
+        balanceWAP = remainingBalanceWAP;
+        interestNAP = (balanceNAP * (interestRate / 12))/100;
+        interestWAP = (balanceWAP * (interestRate / 12))/100;
+        decreaseNAP = monthlyPayment - interestNAP;
+        decreaseWAP = monthlyPayment - interestWAP;
+        remainingBalanceNAP = balanceNAP - decreaseNAP;
+        remainingBalanceWAP = balanceWAP - decreaseWAP;
+        tempFullInterestPaymentNAP = tempFullInterestPaymentNAP + interestNAP;
+        tempFullInterestPaymentWAP = tempFullInterestPaymentWAP + interestWAP;
+        const item: PaymentDetails = {
+          paymentNumber: i+1,
+          balanceNAP: balanceNAP,
+          balanceWAP: balanceWAP,
+          monthlyPayment: monthlyPayment,
+          additionalPayment: 0,
+          interestNAP: interestNAP,
+          interestWAP: interestWAP,
+          decreaseNAP: decreaseNAP,
+          decreaseWAP: decreaseWAP,
+          remainingBalanceNAP: remainingBalanceNAP,
+          remainingBalanceWAP: remainingBalanceWAP,
+        };
+
+        details.push(item);
+      }
+      setDetails(details);
+      setFullInterestPaymentNAP(tempFullInterestPaymentNAP);
+    }
+  },[interestRate, monthlyPayment, mortgageAmount, mortgageLength]);
+
+
+
+  useEffect(()=>{
+    if(!details.length) return;
+    const tempDetails = details.map(d => ({ ...d, additionalPayment: monthlyAdditionalPayment }));
+    const newDetails: PaymentDetails[] = [];
+    let remainingBalanceNAP = mortgageAmount;
+    let remainingBalanceWAP = mortgageAmount;
+    let tempFullInterestPaymentNAP = 0;
+    let tempFullInterestPaymentWAP = 0;
+    for (let i = 0; i < tempDetails.length; i++) {
+      const balanceNAP = remainingBalanceNAP;
+      const balanceWAP = remainingBalanceWAP;
+      const additionalPayment = tempDetails[i].additionalPayment ?? 0;
+      const interestNAP = (balanceNAP * (interestRate / 12)) / 100;
+      const interestWAP = (balanceWAP * (interestRate / 12)) / 100;
+      const decreaseNAP = monthlyPayment - interestNAP;
+      const decreaseWAP = monthlyPayment + additionalPayment - interestWAP;
+      remainingBalanceNAP = balanceNAP - decreaseNAP;
+      remainingBalanceWAP = balanceWAP - decreaseWAP;
+      tempFullInterestPaymentNAP += interestNAP;
+      tempFullInterestPaymentWAP += interestWAP;
+      newDetails.push({
+        paymentNumber: i + 1,
+        balanceNAP, balanceWAP,
+        monthlyPayment,
+        additionalPayment,
+        interestNAP, interestWAP,
+        decreaseNAP, decreaseWAP,
+        remainingBalanceNAP, remainingBalanceWAP,
+      });
+    }
+    setDetails(newDetails);
+    setFullInterestPaymentNAP(tempFullInterestPaymentNAP);
+    setFullInterestPaymentWAP(tempFullInterestPaymentWAP);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthlyAdditionalPayment]);
+
+  const addPayment = (amount: number, index: number) =>{
+    const tempDetails = [...details];
+    tempDetails[index].additionalPayment = amount;
+
+    const newDetails: PaymentDetails[]= [];
+      let balanceNAP = 0;
+      let balanceWAP = 0;
+      let additionalPayment = 0;
+      let interestNAP = 0;
+      let interestWAP = 0;
+      let decreaseNAP = 0;
+      let decreaseWAP = 0;
+      let remainingBalanceNAP = mortgageAmount;
+      let remainingBalanceWAP = mortgageAmount;
+      let tempFullInterestPaymentNAP = 0;
+      let tempFullInterestPaymentWAP = 0;
+    for(let i=0 ; i<(tempDetails.length) ; i++) {
+
+      balanceNAP = remainingBalanceNAP;
+      balanceWAP = remainingBalanceWAP;
+      additionalPayment = Number(tempDetails[i]?.additionalPayment ?? 0);
+      interestNAP = (balanceNAP * (interestRate / 12))/100;
+      interestWAP = (balanceWAP * (interestRate / 12))/100;
+      decreaseNAP = monthlyPayment - interestNAP;
+      decreaseWAP = (monthlyPayment + additionalPayment) - interestWAP;
+      remainingBalanceNAP = balanceNAP - decreaseNAP;
+      remainingBalanceWAP = balanceWAP - decreaseWAP;
+      tempFullInterestPaymentNAP = tempFullInterestPaymentNAP + interestNAP;
+      tempFullInterestPaymentWAP = tempFullInterestPaymentWAP + interestWAP;
+
+      const item: PaymentDetails = {
+        paymentNumber: i+1,
+        balanceNAP: balanceNAP,
+        balanceWAP: balanceWAP,
+        monthlyPayment: monthlyPayment,
+        additionalPayment: additionalPayment,
+        interestNAP: interestNAP,
+        interestWAP: interestWAP,
+        decreaseNAP: decreaseNAP,
+        decreaseWAP: decreaseWAP,
+        remainingBalanceNAP: remainingBalanceNAP,
+        remainingBalanceWAP: remainingBalanceWAP,
+      };
+
+      newDetails.push(item);
+    }
+    setDetails(newDetails);
+    setFullInterestPaymentNAP(tempFullInterestPaymentNAP);
+    setFullInterestPaymentWAP(tempFullInterestPaymentWAP);
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div>The goal of this web app is to display a Payment Mortgage Calculator to give to the user the specific data about the amortization and other interesting amounts.</div>
-      <div>This calculator was inspired by an MS Excel version of a Novarise calculator.</div>
-      {/* <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div> */}
-      <div className="my-class">Please type in your mortgage date on the form.</div>
-      <div className="grid grid-cols-1">
-        <div className="flex flex-col md:flex-row py-1">
-          <label className='pr-2'>Mortage Amount: </label>
-          <input className='border-2 rounded-lg border-grey-300' id='mortgage-amount' type='text' ></input>
+    <>
+      <header className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur">
+        <div className="mx-auto max-w-6xl flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex flex-col">
+            <h1 className="text-lg sm:text-xl font-semibold">
+              {t.appTitle}
+            </h1>
+            <p className="text-xs italic text-gray-400">{t.appSubtitle}</p>
+          </div>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <LanguageToggle />
+            <ThemeToggle />
+          </div>
         </div>
-        <div className="flex flex-col md:flex-row py-1">
-          <label className='pr-2'>Interest Rate: </label>
-          <input className='border-2 rounded-lg border-grey-300' id='interest-rate' type='text' ></input>
+      </header>
+
+      <main className="mx-auto w-full max-w-6xl flex flex-col gap-6 px-4 sm:px-6 lg:px-8 py-6">
+        <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl">
+          {t.appDescription}
+        </p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-5 sm:p-6 flex flex-col gap-3">
+            <div className="text-sm text-slate-500 dark:text-slate-400">
+              {t.formIntro}
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center py-1 gap-1 md:gap-0">
+              <label className="sm:w-48 shrink-0 text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t.mortgageAmountLabel}
+              </label>
+              <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
+                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">$</span>
+                <input
+                  className="w-full px-3 py-2 bg-transparent outline-none"
+                  id="mortgage-amount"
+                  type="text"
+                  inputMode="numeric"
+                  value={mortgageAmount ? mortgageAmount.toLocaleString('en-US') : ''}
+                  onChange={(e)=> {
+                    const raw = e.currentTarget.value.replace(/,/g, '');
+                    if (raw !== '' && !/^\d+$/.test(raw)) return;
+                    setMortgageAmount(raw === '' ? 0 : Number(raw));
+                  }}
+                ></input>
+              </div>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center py-1 gap-1 md:gap-0">
+              <label className="sm:w-48 shrink-0 text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t.interestRateLabel}
+              </label>
+              <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
+                <input
+                  className="w-full px-3 py-2 bg-transparent outline-none"
+                  id="interest-rate"
+                  type="text"
+                  onChange={(e)=> setInterestRate(Number(e.currentTarget.value))}
+                ></input>
+                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">%</span>
+              </div>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center py-1 gap-1 md:gap-0">
+              <label className="sm:w-48 shrink-0 text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t.mortgageLengthLabel}
+              </label>
+              <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
+                <input
+                  className="w-full px-3 py-2 bg-transparent outline-none"
+                  id="mortgage-length"
+                  type="text"
+                  onChange={(e)=> setMortgageLength(Number(e.currentTarget.value))}
+                ></input>
+                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">{t.yearsUnit}</span>
+              </div>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center py-1 gap-1 md:gap-0">
+              <label className="sm:w-48 shrink-0 text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t.numberOfPaymentsLabel}
+              </label>
+              <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-3 py-2 text-slate-700 dark:text-slate-200">
+                {details.length}
+              </div>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center py-1 gap-1 md:gap-0">
+              <label className="sm:w-48 shrink-0 text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t.monthlyPaymentLabel}
+              </label>
+              <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-3 py-2 text-slate-700 dark:text-slate-200">
+                {Dollar.format(monthlyPayment)}
+              </div>
+            </div>
+            <div className="flex flex-col md:flex-row md:items-center py-1 gap-1 md:gap-0">
+              <label className="sm:w-48 shrink-0 text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t.monthlyAdditionalPaymentLabel}
+              </label>
+              <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
+                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">$</span>
+                <input
+                  className="w-full px-3 py-2 bg-transparent outline-none"
+                  id="monthly-additional-payment"
+                  type="text"
+                  inputMode="numeric"
+                  value={monthlyAdditionalPayment ? monthlyAdditionalPayment.toLocaleString('en-US') : ''}
+                  onChange={(e)=> {
+                    const raw = e.currentTarget.value.replace(/,/g, '');
+                    if (raw !== '' && !/^\d+$/.test(raw)) return;
+                    setMonthlyAdditionalPayment(raw === '' ? 0 : Number(raw));
+                  }}
+                ></input>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-5 sm:p-6 flex flex-col gap-3">
+            <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
+              <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t.fullInterestPaymentNAPLabel}
+              </div>
+              <div className="mt-1 text-xl font-semibold">{Dollar.format(fullInterestPaymentNAP)}</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
+              <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t.fullInterestPaymentWAPLabel}
+              </div>
+              <div className="mt-1 text-xl font-semibold">{Dollar.format(fullInterestPaymentWAP)}</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
+              <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {t.fullInterestSavingsLabel}
+              </div>
+              <div className="mt-1 text-xl font-semibold text-emerald-600 dark:text-emerald-400">
+                {Dollar.format(fullInterestPaymentWAP === 0 ? 0 : fullInterestPaymentNAP - fullInterestPaymentWAP)}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={details.length === 0}
+              onClick={() => breakdownRef.current?.downloadPdf({
+                mortgageAmount,
+                interestRate,
+                mortgageLength,
+                numberOfPayments: details.length,
+                monthlyPayment,
+                monthlyAdditionalPayment,
+                fullInterestPaymentNAP,
+                fullInterestPaymentWAP,
+                fullInterestSavings: fullInterestPaymentWAP === 0 ? 0 : fullInterestPaymentNAP - fullInterestPaymentWAP,
+              })}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <Download size={16} />
+              {t.downloadPdfLabel}
+            </button>
+          </div>
         </div>
-        <div className="flex flex-col md:flex-row py-1">
-          <label className='pr-2'>Mortage Length: </label>
-          <input className='border-2 rounded-lg border-grey-300' id='mortgage-length' type='text' ></input>
-        </div>
-        <div className="flex flex-col md:flex-row py-1">
-          <label className='pr-2'>Monthly Payment: </label>
-          <input className='border-2 rounded-lg border-grey-300' id='monthly-payment' type='text' ></input>
-        </div>
-      </div>
-      
-    </main>
-  )
+
+        {details.length > 0 && (
+          <PaymentsBreakdown ref={breakdownRef} details={details} onAdditionalPaymentChange={addPayment} />
+        )}
+      </main>
+    </>
+  );
 }
+
+
+export default Home;
