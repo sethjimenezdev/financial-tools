@@ -34,6 +34,23 @@ interface Translations {
   selectColumnsLabel: string;
   downloadPdfLabel: string;
   generatedOnLabel: string;
+  feedbackButtonLabel: string;
+  feedbackModalTitle: string;
+  feedbackNameLabel: string;
+  feedbackEmailLabel: string;
+  feedbackTypeLabel: string;
+  feedbackTypeBug: string;
+  feedbackTypeImprovement: string;
+  feedbackTypeOther: string;
+  feedbackCommentLabel: string;
+  feedbackSubmitLabel: string;
+  feedbackSubmittingLabel: string;
+  feedbackSuccessMessage: string;
+  feedbackErrorMessage: string;
+  feedbackErrorName: string;
+  feedbackErrorEmail: string;
+  feedbackErrorComment: string;
+  feedbackCloseAria: string;
   columns: ColumnLabels & {
     paymentNumber: string;
     letraHipotecaria: string;
@@ -62,6 +79,23 @@ const translations: Record<Language, Translations> = {
     selectColumnsLabel: 'Select the columns to display:',
     downloadPdfLabel: 'Download PDF',
     generatedOnLabel: 'Generated on',
+    feedbackButtonLabel: 'Feedback',
+    feedbackModalTitle: 'Send Feedback',
+    feedbackNameLabel: 'Name',
+    feedbackEmailLabel: 'Email',
+    feedbackTypeLabel: 'Type',
+    feedbackTypeBug: 'Bug',
+    feedbackTypeImprovement: 'Improvement',
+    feedbackTypeOther: 'Other',
+    feedbackCommentLabel: 'Comment',
+    feedbackSubmitLabel: 'Submit',
+    feedbackSubmittingLabel: 'Submitting…',
+    feedbackSuccessMessage: 'Thanks! Your feedback has been sent.',
+    feedbackErrorMessage: 'Something went wrong. Please try again.',
+    feedbackErrorName: 'Name must be at least 3 characters.',
+    feedbackErrorEmail: 'Please enter a valid email address.',
+    feedbackErrorComment: 'Please write a comment that help us to understand you.',
+    feedbackCloseAria: 'Close feedback form',
     columns: {
       paymentNumber: 'Payment #',
       letraHipotecaria: 'Mortgage Payment',
@@ -105,6 +139,23 @@ const translations: Record<Language, Translations> = {
     selectColumnsLabel: 'Seleccione las columnas a mostrar:',
     downloadPdfLabel: 'Descargar PDF',
     generatedOnLabel: 'Generado el',
+    feedbackButtonLabel: 'Comentarios',
+    feedbackModalTitle: 'Enviar Comentarios',
+    feedbackNameLabel: 'Nombre',
+    feedbackEmailLabel: 'Correo Electrónico',
+    feedbackTypeLabel: 'Tipo',
+    feedbackTypeBug: 'Error',
+    feedbackTypeImprovement: 'Mejora',
+    feedbackTypeOther: 'Otro',
+    feedbackCommentLabel: 'Comentario',
+    feedbackSubmitLabel: 'Enviar',
+    feedbackSubmittingLabel: 'Enviando…',
+    feedbackSuccessMessage: '¡Gracias! Tu comentario ha sido enviado.',
+    feedbackErrorMessage: 'Algo salió mal. Por favor intenta de nuevo.',
+    feedbackErrorName: 'El nombre debe tener al menos 3 caracteres.',
+    feedbackErrorEmail: 'Por favor ingresa un correo electrónico válido.',
+    feedbackErrorComment: 'Por favor escribe un comentario que nos ayude a entenderte.',
+    feedbackCloseAria: 'Cerrar formulario de comentarios',
     columns: {
       paymentNumber: 'Pago #',
       letraHipotecaria: 'Letra Hipotecaria',

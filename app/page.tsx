@@ -6,6 +6,7 @@ import { useLanguage } from '@/lib/i18n';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageToggle } from '@/components/language-toggle';
 import { PaymentsBreakdown, type PaymentsBreakdownHandle } from '@/components/payments-breakdown';
+import { FeedbackModal } from '@/components/feedback-modal';
 
 const Home=() => {
   const { t } = useLanguage();
@@ -159,9 +160,12 @@ const Home=() => {
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex flex-col gap-6 px-4 sm:px-6 lg:px-8 py-6">
-        <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl">
-          {t.appDescription}
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <p id="app-description" className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl">
+            {t.appDescription}
+          </p>
+          <FeedbackModal />
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-5 sm:p-6 flex flex-col gap-3">

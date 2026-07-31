@@ -109,6 +109,28 @@ export default [...compat.extends("next/core-web-vitals")];
 
 The old `.eslintrc.json` file can be safely deleted — ESLint 9 ignores it entirely.
 
+### Feedback / Database Setup
+
+The in-app "Feedback" button (`components/feedback-modal.tsx`) posts to `app/api/feedback/route.ts`, which stores submissions in a Neon Postgres database using `@neondatabase/serverless`. To enable it:
+
+1. In the Vercel dashboard, open this project → **Storage** tab → create a Postgres database (Neon) and connect it to the project. This auto-injects `DATABASE_URL` and related env vars.
+2. Run once via the dashboard's query editor:
+   ```sql
+   CREATE TABLE IF NOT EXISTS feedback (
+     id SERIAL PRIMARY KEY,
+     name VARCHAR(120) NOT NULL,
+     email VARCHAR(254) NOT NULL,
+     type VARCHAR(20) NOT NULL CHECK (type IN ('bug', 'improvement', 'other')),
+     comment TEXT NOT NULL,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+     ip_hash VARCHAR(64)
+   );
+
+   CREATE INDEX IF NOT EXISTS feedback_created_at_idx ON feedback (created_at DESC);
+   ```
+3. Locally, run `vercel link` (if needed) then `vercel env pull .env.local` to pull the same vars — see `.env.local.example` for the expected variable names. No local Postgres install is needed; it's a serverless connection.
+4. Review submissions directly via the Vercel Postgres dashboard's query console — there is no in-app admin view by design (the form itself requires no login).
+
 ---
 
 ## Calculator Logic
