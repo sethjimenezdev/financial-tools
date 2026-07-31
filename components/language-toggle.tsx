@@ -49,7 +49,7 @@ export function LanguageToggle() {
   const isEs = language === 'es'
 
   return (
-    <div className="flex items-center gap-1.5 text-xs font-semibold">
+    <div id="language-toggle" className="flex items-center gap-1.5 text-xs font-semibold">
       <span className={isEs ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}>
         EN
       </span>

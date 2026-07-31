@@ -99,6 +99,7 @@ export const PaymentsBreakdown = forwardRef<PaymentsBreakdownHandle, PaymentsBre
   useImperativeHandle(ref, () => ({
     downloadPdf: (summary: PdfSummary) => {
       const doc = new jsPDF({ orientation: 'landscape' });
+      const pageWidth = doc.internal.pageSize.getWidth();
       const marginX = 14;
       let y = 16;
 
@@ -106,24 +107,36 @@ export const PaymentsBreakdown = forwardRef<PaymentsBreakdownHandle, PaymentsBre
       doc.setFontSize(16);
       doc.text(t.appTitle, marginX, y);
 
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184);
+      doc.text(t.appSubtitle, marginX, y + 5);
+      doc.setTextColor(0, 0, 0);
+
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       const generatedOn = new Date().toLocaleDateString(language === 'es' ? 'es-MX' : 'en-US');
-      doc.text(`${t.generatedOnLabel}: ${generatedOn}`, marginX, y + 6);
+      doc.text(`${t.generatedOnLabel}: ${generatedOn}`, marginX, y + 11);
 
-      y += 14;
+      y += 18;
 
-      const summaryRows: [string, string][] = [
+      const leftSummaryRows: [string, string][] = [
         [t.mortgageAmountLabel, Dollar.format(summary.mortgageAmount)],
         [t.interestRateLabel, `${summary.interestRate}%`],
         [t.mortgageLengthLabel, `${summary.mortgageLength} ${t.yearsUnit}`],
         [t.numberOfPaymentsLabel, String(summary.numberOfPayments)],
         [t.monthlyPaymentLabel, Dollar.format(summary.monthlyPayment)],
         [t.monthlyAdditionalPaymentLabel, Dollar.format(summary.monthlyAdditionalPayment)],
+      ];
+
+      const rightSummaryRows: [string, string][] = [
         [t.fullInterestPaymentNAPLabel, Dollar.format(summary.fullInterestPaymentNAP)],
         [t.fullInterestPaymentWAPLabel, Dollar.format(summary.fullInterestPaymentWAP)],
         [t.fullInterestSavingsLabel, Dollar.format(summary.fullInterestSavings)],
       ];
+
+      const rightWidth = 90;
+      const rightX = pageWidth - marginX - rightWidth;
 
       autoTable(doc, {
         startY: y,
@@ -135,12 +148,31 @@ export const PaymentsBreakdown = forwardRef<PaymentsBreakdownHandle, PaymentsBre
           0: { fontStyle: 'bold', textColor: [71, 85, 105], cellWidth: 75 },
           1: { textColor: [15, 23, 42] },
         },
-        body: summaryRows,
+        body: leftSummaryRows,
       });
 
-      const summaryFinalY =
+      const leftFinalY =
         (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ??
-        y + summaryRows.length * 6;
+        y + leftSummaryRows.length * 6;
+
+      autoTable(doc, {
+        startY: y,
+        margin: { left: rightX, right: marginX },
+        theme: 'plain',
+        tableWidth: rightWidth,
+        styles: { fontSize: 10, cellPadding: 1.2 },
+        columnStyles: {
+          0: { fontStyle: 'bold', textColor: [71, 85, 105], cellWidth: 50 },
+          1: { textColor: [15, 23, 42] },
+        },
+        body: rightSummaryRows,
+      });
+
+      const rightFinalY =
+        (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ??
+        y + rightSummaryRows.length * 6;
+
+      const summaryFinalY = Math.max(leftFinalY, rightFinalY);
 
       const head = [[
         t.columns.paymentNumber,
@@ -172,7 +204,7 @@ export const PaymentsBreakdown = forwardRef<PaymentsBreakdownHandle, PaymentsBre
   }), [details, shownColumns, t, language]);
 
   return (
-    <div>
+    <div id="payments-breakdown">
       <div className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl">{t.selectColumnsLabel}</div>
       <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm">
         {OPTIONAL_COLUMNS.map(col => (

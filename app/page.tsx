@@ -59,7 +59,7 @@ const Home=() => {
         interestNAP = (balanceNAP * (interestRate / 12))/100;
         interestWAP = (balanceWAP * (interestRate / 12))/100;
         decreaseNAP = monthlyPayment - interestNAP;
-        decreaseWAP = monthlyPayment - interestWAP;
+        decreaseWAP = monthlyPayment + monthlyAdditionalPayment - interestWAP;
         remainingBalanceNAP = balanceNAP - decreaseNAP;
         remainingBalanceWAP = balanceWAP - decreaseWAP;
         tempFullInterestPaymentNAP = tempFullInterestPaymentNAP + interestNAP;
@@ -69,7 +69,7 @@ const Home=() => {
           balanceNAP: balanceNAP,
           balanceWAP: balanceWAP,
           monthlyPayment: monthlyPayment,
-          additionalPayment: 0,
+          additionalPayment: monthlyAdditionalPayment,
           interestNAP: interestNAP,
           interestWAP: interestWAP,
           decreaseNAP: decreaseNAP,
@@ -82,46 +82,13 @@ const Home=() => {
       }
       setDetails(details);
       setFullInterestPaymentNAP(tempFullInterestPaymentNAP);
+      setFullInterestPaymentWAP(tempFullInterestPaymentWAP);
+    } else {
+      setDetails([]);
+      setFullInterestPaymentNAP(0);
+      setFullInterestPaymentWAP(0);
     }
-  },[interestRate, monthlyPayment, mortgageAmount, mortgageLength]);
-
-
-
-  useEffect(()=>{
-    if(!details.length) return;
-    const tempDetails = details.map(d => ({ ...d, additionalPayment: monthlyAdditionalPayment }));
-    const newDetails: PaymentDetails[] = [];
-    let remainingBalanceNAP = mortgageAmount;
-    let remainingBalanceWAP = mortgageAmount;
-    let tempFullInterestPaymentNAP = 0;
-    let tempFullInterestPaymentWAP = 0;
-    for (let i = 0; i < tempDetails.length; i++) {
-      const balanceNAP = remainingBalanceNAP;
-      const balanceWAP = remainingBalanceWAP;
-      const additionalPayment = tempDetails[i].additionalPayment ?? 0;
-      const interestNAP = (balanceNAP * (interestRate / 12)) / 100;
-      const interestWAP = (balanceWAP * (interestRate / 12)) / 100;
-      const decreaseNAP = monthlyPayment - interestNAP;
-      const decreaseWAP = monthlyPayment + additionalPayment - interestWAP;
-      remainingBalanceNAP = balanceNAP - decreaseNAP;
-      remainingBalanceWAP = balanceWAP - decreaseWAP;
-      tempFullInterestPaymentNAP += interestNAP;
-      tempFullInterestPaymentWAP += interestWAP;
-      newDetails.push({
-        paymentNumber: i + 1,
-        balanceNAP, balanceWAP,
-        monthlyPayment,
-        additionalPayment,
-        interestNAP, interestWAP,
-        decreaseNAP, decreaseWAP,
-        remainingBalanceNAP, remainingBalanceWAP,
-      });
-    }
-    setDetails(newDetails);
-    setFullInterestPaymentNAP(tempFullInterestPaymentNAP);
-    setFullInterestPaymentWAP(tempFullInterestPaymentWAP);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monthlyAdditionalPayment]);
+  },[interestRate, monthlyPayment, mortgageAmount, mortgageLength, monthlyAdditionalPayment]);
 
   const addPayment = (amount: number, index: number) =>{
     const tempDetails = [...details];
@@ -311,6 +278,8 @@ const Home=() => {
 
             <button
               type="button"
+              id="download-pdf"
+              name="download-pdf"
               disabled={details.length === 0}
               onClick={() => breakdownRef.current?.downloadPdf({
                 mortgageAmount,
