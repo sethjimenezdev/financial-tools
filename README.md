@@ -145,19 +145,20 @@ Where:
 - `n` = 12 (monthly compounding)
 - `t` = loan term in years
 
-Each amortization row computes:
+Each amortization row computes, via `buildAmortizationSchedule` in `lib/mortgage.ts`:
 
 ```
-interest     = balance × (annualRate / 12) / 100
-decreaseNAP  = monthlyPayment - interest
-decreaseWAP  = monthlyPayment + additionalPayment - interest
-remainingBalance = previousBalance - decrease
+interest = balance × (annualRate / 12) / 100        (0 once that scenario's balance has reached 0)
+decrease = min(monthlyPayment [+ additionalPayment] - interest, balance)
+remainingBalance = balance - decrease                (clamped to a minimum of 0)
 ```
+
+Both the NAP (no additional payments) and WAP (with additional payments) scenarios are computed independently and share this same clamping: once a scenario's balance hits zero, later months accrue no further interest and stay at a zero balance instead of continuing to apply payments to a paid-off loan. This matters most for WAP, since large additional payments routinely pay a loan off well before its nominal term ends.
 
 ---
 
 ## Known Limitations
 
 - Inputs accept any numeric string; no input masking or validation beyond `Number()` conversion.
-- The amortization table does not stop early when the WAP balance reaches zero (the WAP balance can go negative on the last payments if additional payments are very large).
+- The final payment of each scenario isn't trued up to land on exactly `$0.00` — because the monthly payment is rounded to the cent, the last row can be off by a few cents (NAP) to a couple dollars (WAP) depending on term length. Cosmetic only; not surfaced in the summary cards.
 - Network drive warning (`Slow filesystem detected`) is expected when the project lives on a network share; move to a local folder for better dev performance.

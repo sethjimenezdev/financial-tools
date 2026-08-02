@@ -65,6 +65,43 @@ function AdditionalPaymentInput({
   );
 }
 
+function AdditionalPaymentCell({
+  detail,
+  index,
+  onChange,
+  clearAriaLabel,
+  inputClassName,
+}: {
+  detail: PaymentDetails;
+  index: number;
+  onChange: (amount: number, index: number) => void;
+  clearAriaLabel: string;
+  inputClassName: string;
+}) {
+  if (detail.balanceWAP === 0) {
+    return <span className="px-2 py-1 text-sm text-slate-400 dark:text-slate-500">{Dollar.format(0)}</span>;
+  }
+
+  return (
+    <>
+      <AdditionalPaymentInput
+        value={detail.additionalPayment}
+        index={index}
+        onChange={onChange}
+        className={inputClassName}
+      />
+      <button
+        type="button"
+        aria-label={clearAriaLabel}
+        className="p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+        onClick={() => onChange(0, index)}
+      >
+        <X size={14} />
+      </button>
+    </>
+  );
+}
+
 export const PaymentsBreakdown = forwardRef<PaymentsBreakdownHandle, PaymentsBreakdownProps>(function PaymentsBreakdown(
   { details, onAdditionalPaymentChange },
   ref
@@ -256,26 +293,22 @@ export const PaymentsBreakdown = forwardRef<PaymentsBreakdownHandle, PaymentsBre
               {details.map((d: PaymentDetails, i: number) => (
                 <tr
                   key={i}
-                  className="text-end odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800/60"
+                  id={`payment-row-desktop-${d.paymentNumber}`}
+                  className={`text-end odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800/60 ${
+                    d.balanceWAP === 0 ? 'text-slate-400 dark:text-slate-500' : ''
+                  }`}
                 >
                   <td className="px-3 py-2 text-center">{i + 1}</td>
                   <td className="px-3 py-2">{Dollar.format(d.monthlyPayment)}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-end gap-1">
-                      <AdditionalPaymentInput
-                        value={d.additionalPayment}
+                      <AdditionalPaymentCell
+                        detail={d}
                         index={i}
                         onChange={onAdditionalPaymentChange}
-                        className="w-28 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-800 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                        clearAriaLabel={t.clearAdditionalPaymentAria}
+                        inputClassName="w-28 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-800 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                       />
-                      <button
-                        type="button"
-                        aria-label={t.clearAdditionalPaymentAria}
-                        className="p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                        onClick={() => onAdditionalPaymentChange(0, i)}
-                      >
-                        <X size={14} />
-                      </button>
                     </div>
                   </td>
                   {shownColumns.map(col => (
@@ -292,7 +325,10 @@ export const PaymentsBreakdown = forwardRef<PaymentsBreakdownHandle, PaymentsBre
         {details.map((d: PaymentDetails, i: number) => (
           <li
             key={i}
-            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm"
+            id={`payment-row-mobile-${d.paymentNumber}`}
+            className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm ${
+              d.balanceWAP === 0 ? 'text-slate-400 dark:text-slate-500' : ''
+            }`}
           >
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-3">
               <span className="font-semibold">{t.columns.paymentNumber}{i + 1}</span>
@@ -314,20 +350,13 @@ export const PaymentsBreakdown = forwardRef<PaymentsBreakdownHandle, PaymentsBre
               <label className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
                 {t.columns.pagoAdicional}
               </label>
-              <AdditionalPaymentInput
-                value={d.additionalPayment}
+              <AdditionalPaymentCell
+                detail={d}
                 index={i}
                 onChange={onAdditionalPaymentChange}
-                className="w-full sm:w-28 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-800 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                clearAriaLabel={t.clearAdditionalPaymentAria}
+                inputClassName="w-full sm:w-28 rounded-lg border border-slate-300 dark:border-slate-700 dark:bg-slate-800 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
               />
-              <button
-                type="button"
-                aria-label={t.clearAdditionalPaymentAria}
-                className="p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                onClick={() => onAdditionalPaymentChange(0, i)}
-              >
-                <X size={14} />
-              </button>
             </div>
           </li>
         ))}

@@ -1,16 +1,18 @@
 'use client'
 import { useEffect, useRef, useState } from 'react';
 import { Download } from 'lucide-react';
-import { Dollar, type PaymentDetails } from '@/lib/mortgage';
+import { Dollar, buildAmortizationSchedule, type PaymentDetails } from '@/lib/mortgage';
 import { useLanguage } from '@/lib/i18n';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageToggle } from '@/components/language-toggle';
 import { PaymentsBreakdown, type PaymentsBreakdownHandle } from '@/components/payments-breakdown';
 import { FeedbackModal } from '@/components/feedback-modal';
+import { PayoffJumpButton } from '@/components/payoff-jump-button';
 
 const Home=() => {
   const { t } = useLanguage();
   const breakdownRef = useRef<PaymentsBreakdownHandle>(null);
+  const breakdownSectionRef = useRef<HTMLDivElement>(null);
   const [mortgageAmount, setMortgageAmount] = useState(0);
   const [interestRate, setInterestRate] = useState(0);
   const [mortgageLength, setMortgageLength] = useState(0);
@@ -19,6 +21,7 @@ const Home=() => {
   const [fullInterestPaymentNAP, setFullInterestPaymentNAP] = useState(0);
   const [fullInterestPaymentWAP, setFullInterestPaymentWAP] = useState(0);
   const [monthlyAdditionalPayment, setMonthlyAdditionalPayment] = useState(0);
+  const [isBreakdownSectionVisible, setIsBreakdownSectionVisible] = useState(false);
 
   useEffect(()=>{
     if(mortgageAmount > 0 && interestRate > 0 && mortgageLength > 0) {
@@ -41,49 +44,16 @@ const Home=() => {
 
   useEffect(()=>{
     if(monthlyPayment && mortgageLength && monthlyPayment && interestRate){
-      const details: PaymentDetails[]= [];
-      let balanceNAP = 0;
-      let balanceWAP = 0;
-      let interestNAP = 0;
-      let interestWAP = 0;
-      let decreaseNAP = 0;
-      let decreaseWAP = 0;
-      let remainingBalanceNAP = mortgageAmount;
-      let remainingBalanceWAP = mortgageAmount;
-      let tempFullInterestPaymentNAP = 0;
-      let tempFullInterestPaymentWAP = 0;
-
-      for(let i=0 ; i<(mortgageLength*12) ; i++) {
-
-        balanceNAP = remainingBalanceNAP;
-        balanceWAP = remainingBalanceWAP;
-        interestNAP = (balanceNAP * (interestRate / 12))/100;
-        interestWAP = (balanceWAP * (interestRate / 12))/100;
-        decreaseNAP = monthlyPayment - interestNAP;
-        decreaseWAP = monthlyPayment + monthlyAdditionalPayment - interestWAP;
-        remainingBalanceNAP = balanceNAP - decreaseNAP;
-        remainingBalanceWAP = balanceWAP - decreaseWAP;
-        tempFullInterestPaymentNAP = tempFullInterestPaymentNAP + interestNAP;
-        tempFullInterestPaymentWAP = tempFullInterestPaymentWAP + interestWAP;
-        const item: PaymentDetails = {
-          paymentNumber: i+1,
-          balanceNAP: balanceNAP,
-          balanceWAP: balanceWAP,
-          monthlyPayment: monthlyPayment,
-          additionalPayment: monthlyAdditionalPayment,
-          interestNAP: interestNAP,
-          interestWAP: interestWAP,
-          decreaseNAP: decreaseNAP,
-          decreaseWAP: decreaseWAP,
-          remainingBalanceNAP: remainingBalanceNAP,
-          remainingBalanceWAP: remainingBalanceWAP,
-        };
-
-        details.push(item);
-      }
+      const additionalPayments = Array(mortgageLength * 12).fill(monthlyAdditionalPayment);
+      const { details, fullInterestPaymentNAP, fullInterestPaymentWAP } = buildAmortizationSchedule({
+        mortgageAmount,
+        interestRate,
+        monthlyPayment,
+        additionalPayments,
+      });
       setDetails(details);
-      setFullInterestPaymentNAP(tempFullInterestPaymentNAP);
-      setFullInterestPaymentWAP(tempFullInterestPaymentWAP);
+      setFullInterestPaymentNAP(fullInterestPaymentNAP);
+      setFullInterestPaymentWAP(fullInterestPaymentWAP);
     } else {
       setDetails([]);
       setFullInterestPaymentNAP(0);
@@ -92,55 +62,28 @@ const Home=() => {
   },[interestRate, monthlyPayment, mortgageAmount, mortgageLength, monthlyAdditionalPayment]);
 
   const addPayment = (amount: number, index: number) =>{
-    const tempDetails = [...details];
-    tempDetails[index].additionalPayment = amount;
-
-    const newDetails: PaymentDetails[]= [];
-      let balanceNAP = 0;
-      let balanceWAP = 0;
-      let additionalPayment = 0;
-      let interestNAP = 0;
-      let interestWAP = 0;
-      let decreaseNAP = 0;
-      let decreaseWAP = 0;
-      let remainingBalanceNAP = mortgageAmount;
-      let remainingBalanceWAP = mortgageAmount;
-      let tempFullInterestPaymentNAP = 0;
-      let tempFullInterestPaymentWAP = 0;
-    for(let i=0 ; i<(tempDetails.length) ; i++) {
-
-      balanceNAP = remainingBalanceNAP;
-      balanceWAP = remainingBalanceWAP;
-      additionalPayment = Number(tempDetails[i]?.additionalPayment ?? 0);
-      interestNAP = (balanceNAP * (interestRate / 12))/100;
-      interestWAP = (balanceWAP * (interestRate / 12))/100;
-      decreaseNAP = monthlyPayment - interestNAP;
-      decreaseWAP = (monthlyPayment + additionalPayment) - interestWAP;
-      remainingBalanceNAP = balanceNAP - decreaseNAP;
-      remainingBalanceWAP = balanceWAP - decreaseWAP;
-      tempFullInterestPaymentNAP = tempFullInterestPaymentNAP + interestNAP;
-      tempFullInterestPaymentWAP = tempFullInterestPaymentWAP + interestWAP;
-
-      const item: PaymentDetails = {
-        paymentNumber: i+1,
-        balanceNAP: balanceNAP,
-        balanceWAP: balanceWAP,
-        monthlyPayment: monthlyPayment,
-        additionalPayment: additionalPayment,
-        interestNAP: interestNAP,
-        interestWAP: interestWAP,
-        decreaseNAP: decreaseNAP,
-        decreaseWAP: decreaseWAP,
-        remainingBalanceNAP: remainingBalanceNAP,
-        remainingBalanceWAP: remainingBalanceWAP,
-      };
-
-      newDetails.push(item);
-    }
+    const additionalPayments = details.map((d, i) => (i === index ? amount : Number(d.additionalPayment ?? 0)));
+    const { details: newDetails, fullInterestPaymentNAP, fullInterestPaymentWAP } = buildAmortizationSchedule({
+      mortgageAmount,
+      interestRate,
+      monthlyPayment,
+      additionalPayments,
+    });
     setDetails(newDetails);
-    setFullInterestPaymentNAP(tempFullInterestPaymentNAP);
-    setFullInterestPaymentWAP(tempFullInterestPaymentWAP);
+    setFullInterestPaymentNAP(fullInterestPaymentNAP);
+    setFullInterestPaymentWAP(fullInterestPaymentWAP);
   }
+
+  useEffect(() => {
+    const el = breakdownSectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => setIsBreakdownSectionVisible(entry.isIntersecting), { threshold: 0 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const payoffPaymentNumber = details.find(d => d.remainingBalanceWAP === 0)?.paymentNumber ?? null;
+  const showPayoffJumpButton = isBreakdownSectionVisible && monthlyAdditionalPayment > 0 && payoffPaymentNumber !== null;
 
   return (
     <>
@@ -304,10 +247,14 @@ const Home=() => {
           </div>
         </div>
 
-        {details.length > 0 && (
-          <PaymentsBreakdown ref={breakdownRef} details={details} onAdditionalPaymentChange={addPayment} />
-        )}
+        <div ref={breakdownSectionRef}>
+          {details.length > 0 && (
+            <PaymentsBreakdown ref={breakdownRef} details={details} onAdditionalPaymentChange={addPayment} />
+          )}
+        </div>
       </main>
+
+      <PayoffJumpButton visible={showPayoffJumpButton} targetPaymentNumber={payoffPaymentNumber} />
     </>
   );
 }

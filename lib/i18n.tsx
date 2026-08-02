@@ -31,6 +31,8 @@ interface Translations {
   fullInterestPaymentWAPLabel: string;
   fullInterestSavingsLabel: string;
   clearAdditionalPaymentAria: string;
+  jumpToPayoffRowAria: string;
+  backToTopAria: string;
   selectColumnsLabel: string;
   downloadPdfLabel: string;
   generatedOnLabel: string;
@@ -76,6 +78,8 @@ const translations: Record<Language, Translations> = {
     fullInterestPaymentWAPLabel: 'Full Interest Payment (with additional payments)',
     fullInterestSavingsLabel: 'Full Interest Savings',
     clearAdditionalPaymentAria: 'Clear additional payment',
+    jumpToPayoffRowAria: 'Jump to the row where the loan is paid off',
+    backToTopAria: 'Back to top',
     selectColumnsLabel: 'Select the columns to display:',
     downloadPdfLabel: 'Download PDF',
     generatedOnLabel: 'Generated on',
@@ -136,6 +140,8 @@ const translations: Record<Language, Translations> = {
     fullInterestPaymentWAPLabel: 'Interés Total (con pagos adicionales)',
     fullInterestSavingsLabel: 'Ahorro Total en Intereses',
     clearAdditionalPaymentAria: 'Borrar pago adicional',
+    jumpToPayoffRowAria: 'Ir a la fila donde se salda el préstamo',
+    backToTopAria: 'Volver arriba',
     selectColumnsLabel: 'Seleccione las columnas a mostrar:',
     downloadPdfLabel: 'Descargar PDF',
     generatedOnLabel: 'Generado el',
