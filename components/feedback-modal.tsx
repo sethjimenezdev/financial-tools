@@ -227,6 +227,7 @@ export function FeedbackModal() {
 
                 <button
                   type="submit"
+                  id="feedback-submit-btn"
                   disabled={status === 'submitting'}
                   className="mt-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
