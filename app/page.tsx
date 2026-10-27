@@ -1,16 +1,46 @@
-'use client'
-import { useEffect, useRef, useState } from 'react';
-import { Download } from 'lucide-react';
-import { Dollar, buildAmortizationSchedule, type PaymentDetails } from '@/lib/mortgage';
-import { useLanguage } from '@/lib/i18n';
-import { ThemeToggle } from '@/components/theme-toggle';
-import { LanguageToggle } from '@/components/language-toggle';
-import { PaymentsBreakdown, type PaymentsBreakdownHandle } from '@/components/payments-breakdown';
-import { FeedbackModal } from '@/components/feedback-modal';
-import { PayoffJumpButton } from '@/components/payoff-jump-button';
+"use client";
+import { Suspense, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { Download } from "lucide-react";
+import {
+  Dollar,
+  buildAmortizationSchedule,
+  calcMonthlyPayment,
+  type PaymentDetails,
+} from "@/lib/mortgage";
+import { useLanguage } from "@/lib/i18n";
+import { fillTemplate } from "@/lib/i18n-auth";
+import type { CalculationInput } from "@/lib/calculations";
+import { AccountMenu } from "@/components/account-menu";
+import { SaveCalculation } from "@/components/save-calculation";
+import { ClearCalculation } from "@/components/clear-calculation";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
+import {
+  PaymentsBreakdown,
+  type PaymentsBreakdownHandle,
+} from "@/components/payments-breakdown";
+import { FeedbackModal } from "@/components/feedback-modal";
+import { PayoffJumpButton } from "@/components/payoff-jump-button";
 
-const Home=() => {
+const DRAFT_KEY = "calculator-draft";
+
+const HomeContent = () => {
   const { t } = useLanguage();
+  const { status: sessionStatus } = useSession();
+  const loadId = useSearchParams().get("load");
+  const pendingExtrasRef = useRef<number[] | null>(null);
+  const [loaded, setLoaded] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const [notice, setNotice] = useState<{
+    kind: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [interestRateText, setInterestRateText] = useState("");
+  const [mortgageLengthText, setMortgageLengthText] = useState("");
   const breakdownRef = useRef<PaymentsBreakdownHandle>(null);
   const breakdownSectionRef = useRef<HTMLDivElement>(null);
   const [mortgageAmount, setMortgageAmount] = useState(0);
@@ -21,36 +51,31 @@ const Home=() => {
   const [fullInterestPaymentNAP, setFullInterestPaymentNAP] = useState(0);
   const [fullInterestPaymentWAP, setFullInterestPaymentWAP] = useState(0);
   const [monthlyAdditionalPayment, setMonthlyAdditionalPayment] = useState(0);
-  const [isBreakdownSectionVisible, setIsBreakdownSectionVisible] = useState(false);
+  const [isBreakdownSectionVisible, setIsBreakdownSectionVisible] =
+    useState(false);
 
-  useEffect(()=>{
-    if(mortgageAmount > 0 && interestRate > 0 && mortgageLength > 0) {
-      const pmt = () =>{
-        //https://superuser.com/questions/871404/what-would-be-the-the-mathematical-equivalent-of-this-excel-formula-pmt
-        const p = Number(mortgageAmount);
-        const r = Number(interestRate)/100;
-        const t = Number(mortgageLength);
-        const n = 12;
-        const a = p * (r/n);
-        const b = 1-(1/(Math.pow(1+(r/n),n*t)));
-        const monthlyPayment = a/b;
-        return Number(monthlyPayment.toFixed(2) || 0);
-      }
-      setMonthlyPayment(pmt());
-    } else {
-      setMonthlyPayment(0);
-    }
-  },[mortgageAmount, interestRate, mortgageLength]);
+  useEffect(() => {
+    setMonthlyPayment(
+      calcMonthlyPayment(mortgageAmount, interestRate, mortgageLength),
+    );
+  }, [mortgageAmount, interestRate, mortgageLength]);
 
-  useEffect(()=>{
-    if(monthlyPayment && mortgageLength && monthlyPayment && interestRate){
-      const additionalPayments = Array(mortgageLength * 12).fill(monthlyAdditionalPayment);
-      const { details, fullInterestPaymentNAP, fullInterestPaymentWAP } = buildAmortizationSchedule({
-        mortgageAmount,
-        interestRate,
-        monthlyPayment,
-        additionalPayments,
-      });
+  useEffect(() => {
+    if (monthlyPayment && mortgageLength && monthlyPayment && interestRate) {
+      // A just-loaded saved calculation brings its own per-month extras; use them once.
+      const pendingExtras = pendingExtrasRef.current;
+      pendingExtrasRef.current = null;
+      const additionalPayments =
+        pendingExtras && pendingExtras.length === mortgageLength * 12
+          ? pendingExtras
+          : Array(mortgageLength * 12).fill(monthlyAdditionalPayment);
+      const { details, fullInterestPaymentNAP, fullInterestPaymentWAP } =
+        buildAmortizationSchedule({
+          mortgageAmount,
+          interestRate,
+          monthlyPayment,
+          additionalPayments,
+        });
       setDetails(details);
       setFullInterestPaymentNAP(fullInterestPaymentNAP);
       setFullInterestPaymentWAP(fullInterestPaymentWAP);
@@ -59,11 +84,23 @@ const Home=() => {
       setFullInterestPaymentNAP(0);
       setFullInterestPaymentWAP(0);
     }
-  },[interestRate, monthlyPayment, mortgageAmount, mortgageLength, monthlyAdditionalPayment]);
+  }, [
+    interestRate,
+    monthlyPayment,
+    mortgageAmount,
+    mortgageLength,
+    monthlyAdditionalPayment,
+  ]);
 
-  const addPayment = (amount: number, index: number) =>{
-    const additionalPayments = details.map((d, i) => (i === index ? amount : Number(d.additionalPayment ?? 0)));
-    const { details: newDetails, fullInterestPaymentNAP, fullInterestPaymentWAP } = buildAmortizationSchedule({
+  const addPayment = (amount: number, index: number) => {
+    const additionalPayments = details.map((d, i) =>
+      i === index ? amount : Number(d.additionalPayment ?? 0),
+    );
+    const {
+      details: newDetails,
+      fullInterestPaymentNAP,
+      fullInterestPaymentWAP,
+    } = buildAmortizationSchedule({
       mortgageAmount,
       interestRate,
       monthlyPayment,
@@ -72,65 +109,214 @@ const Home=() => {
     setDetails(newDetails);
     setFullInterestPaymentNAP(fullInterestPaymentNAP);
     setFullInterestPaymentWAP(fullInterestPaymentWAP);
-  }
+  };
+
+  const applyInput = (input: CalculationInput) => {
+    pendingExtrasRef.current = input.additionalPayments;
+    setMortgageAmount(input.mortgageAmount);
+    setInterestRate(input.interestRate);
+    setInterestRateText(String(input.interestRate));
+    setMortgageLength(input.mortgageLength);
+    setMortgageLengthText(String(input.mortgageLength));
+    setMonthlyAdditionalPayment(input.monthlyAdditionalPayment);
+    // Set together with the inputs so the schedule is built once from consistent values.
+    setMonthlyPayment(
+      calcMonthlyPayment(
+        input.mortgageAmount,
+        input.interestRate,
+        input.mortgageLength,
+      ),
+    );
+  };
+
+  const clearCalculation = () => {
+    pendingExtrasRef.current = null;
+    setMortgageAmount(0);
+    setInterestRate(0);
+    setInterestRateText("");
+    setMortgageLength(0);
+    setMortgageLengthText("");
+    setMonthlyAdditionalPayment(0);
+    setMonthlyPayment(0);
+    setLoaded(null);
+    setNotice(null);
+  };
+
+  const currentInput = (): CalculationInput => ({
+    mortgageAmount,
+    interestRate,
+    mortgageLength,
+    monthlyAdditionalPayment,
+    additionalPayments:
+      details.length > 0
+        ? details.map((d) => Number(d.additionalPayment ?? 0))
+        : null,
+  });
+
+  // Restore what the user typed before being sent to sign in.
+  useEffect(() => {
+    if (loadId) return;
+    try {
+      const raw = window.sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      window.sessionStorage.removeItem(DRAFT_KEY);
+      const draft = JSON.parse(raw) as CalculationInput;
+      if (draft && draft.mortgageAmount >= 0) applyInput(draft);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const stashDraft = () => {
+    try {
+      if (mortgageAmount > 0 || interestRate > 0 || mortgageLength > 0) {
+        window.sessionStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify(currentInput()),
+        );
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!loadId || sessionStatus === "loading") return;
+    if (sessionStatus === "unauthenticated") {
+      window.location.href = `/login?callbackUrl=${encodeURIComponent(`/?load=${loadId}`)}`;
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/calculations/${encodeURIComponent(loadId)}`)
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setNotice({ kind: "error", text: t.auth.calcNotFound });
+          return;
+        }
+        applyInput(body.calculation);
+        setLoaded({ id: body.calculation.id, name: body.calculation.name });
+        setNotice({
+          kind: "success",
+          text: fillTemplate(t.auth.calcLoaded, {
+            name: body.calculation.name,
+          }),
+        });
+      })
+      .catch(
+        () =>
+          !cancelled &&
+          setNotice({ kind: "error", text: t.auth.calcLoadError }),
+      );
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadId, sessionStatus]);
 
   useEffect(() => {
     const el = breakdownSectionRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => setIsBreakdownSectionVisible(entry.isIntersecting), { threshold: 0 });
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsBreakdownSectionVisible(entry.isIntersecting),
+      { threshold: 0 },
+    );
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  const payoffPaymentNumber = details.find(d => d.remainingBalanceWAP === 0)?.paymentNumber ?? null;
-  const showPayoffJumpButton = isBreakdownSectionVisible && monthlyAdditionalPayment > 0 && payoffPaymentNumber !== null;
+  const payoffPaymentNumber =
+    details.find((d) => d.remainingBalanceWAP === 0)?.paymentNumber ?? null;
+  const showPayoffJumpButton =
+    isBreakdownSectionVisible &&
+    monthlyAdditionalPayment > 0 &&
+    payoffPaymentNumber !== null;
 
   return (
     <>
       <header className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex flex-col">
-            <h1 className="text-lg sm:text-xl font-semibold">
-              {t.appTitle}
-            </h1>
+            <h1 className="text-lg sm:text-xl font-semibold">{t.appTitle}</h1>
             <p className="text-xs italic text-gray-400">{t.appSubtitle}</p>
           </div>
           <div className="flex items-center gap-3 sm:gap-4">
             <LanguageToggle />
             <ThemeToggle />
+            <AccountMenu />
           </div>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex flex-col gap-6 px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex items-start justify-between gap-4">
-          <p id="app-description" className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl">
-            {t.appDescription}
-          </p>
+          <div className="flex flex-col gap-2 max-w-2xl">
+            <p
+              id="app-description"
+              className="text-sm text-slate-600 dark:text-slate-400"
+            >
+              {t.appDescription}
+            </p>
+            {sessionStatus === "unauthenticated" && (
+              <p
+                id="sign-in-prompt"
+                role="status"
+                className="rounded-lg border px-3 py-2 text-sm border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+              >
+                {t.auth.signInPromptBefore}
+                <Link
+                  href="/login"
+                  onClick={stashDraft}
+                  className="font-semibold underline hover:no-underline"
+                >
+                  {t.auth.signInPromptLink}
+                </Link>
+                {t.auth.signInPromptAfter}
+              </p>
+            )}
+            {notice && (
+              <p
+                role="status"
+                className={`text-sm ${notice.kind === "success" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+              >
+                {notice.text}
+              </p>
+            )}
+          </div>
           <FeedbackModal />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-5 sm:p-6 flex flex-col gap-3">
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              {t.formIntro}
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                {t.formIntro}
+              </div>
+              <ClearCalculation
+                disabled={
+                  !(mortgageAmount || interestRate || mortgageLength || monthlyAdditionalPayment)
+                }
+                onConfirm={clearCalculation}
+              />
             </div>
             <div className="flex flex-col md:flex-row md:items-center py-1 gap-1 md:gap-0">
               <label className="sm:w-48 shrink-0 text-sm font-medium text-slate-700 dark:text-slate-300">
                 {t.mortgageAmountLabel}
               </label>
               <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
-                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">$</span>
+                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">
+                  $
+                </span>
                 <input
                   className="w-full px-3 py-2 bg-transparent outline-none"
                   id="mortgage-amount"
                   type="text"
                   inputMode="numeric"
-                  value={mortgageAmount ? mortgageAmount.toLocaleString('en-US') : ''}
-                  onChange={(e)=> {
-                    const raw = e.currentTarget.value.replace(/,/g, '');
-                    if (raw !== '' && !/^\d+$/.test(raw)) return;
-                    setMortgageAmount(raw === '' ? 0 : Number(raw));
+                  value={
+                    mortgageAmount ? mortgageAmount.toLocaleString("en-US") : ""
+                  }
+                  onChange={(e) => {
+                    const raw = e.currentTarget.value.replace(/,/g, "");
+                    if (raw !== "" && !/^\d+$/.test(raw)) return;
+                    setMortgageAmount(raw === "" ? 0 : Number(raw));
                   }}
                 ></input>
               </div>
@@ -144,9 +330,15 @@ const Home=() => {
                   className="w-full px-3 py-2 bg-transparent outline-none"
                   id="interest-rate"
                   type="text"
-                  onChange={(e)=> setInterestRate(Number(e.currentTarget.value))}
+                  value={interestRateText}
+                  onChange={(e) => {
+                    setInterestRateText(e.currentTarget.value);
+                    setInterestRate(Number(e.currentTarget.value));
+                  }}
                 ></input>
-                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">%</span>
+                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">
+                  %
+                </span>
               </div>
             </div>
             <div className="flex flex-col md:flex-row md:items-center py-1 gap-1 md:gap-0">
@@ -158,9 +350,15 @@ const Home=() => {
                   className="w-full px-3 py-2 bg-transparent outline-none"
                   id="mortgage-length"
                   type="text"
-                  onChange={(e)=> setMortgageLength(Number(e.currentTarget.value))}
+                  value={mortgageLengthText}
+                  onChange={(e) => {
+                    setMortgageLengthText(e.currentTarget.value);
+                    setMortgageLength(Number(e.currentTarget.value));
+                  }}
                 ></input>
-                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">{t.yearsUnit}</span>
+                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">
+                  {t.yearsUnit}
+                </span>
               </div>
             </div>
             <div className="flex flex-col md:flex-row md:items-center py-1 gap-1 md:gap-0">
@@ -184,17 +382,23 @@ const Home=() => {
                 {t.monthlyAdditionalPaymentLabel}
               </label>
               <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
-                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">$</span>
+                <span className="px-3 text-sm text-slate-500 dark:text-slate-400 bg-transparent">
+                  $
+                </span>
                 <input
                   className="w-full px-3 py-2 bg-transparent outline-none"
                   id="monthly-additional-payment"
                   type="text"
                   inputMode="numeric"
-                  value={monthlyAdditionalPayment ? monthlyAdditionalPayment.toLocaleString('en-US') : ''}
-                  onChange={(e)=> {
-                    const raw = e.currentTarget.value.replace(/,/g, '');
-                    if (raw !== '' && !/^\d+$/.test(raw)) return;
-                    setMonthlyAdditionalPayment(raw === '' ? 0 : Number(raw));
+                  value={
+                    monthlyAdditionalPayment
+                      ? monthlyAdditionalPayment.toLocaleString("en-US")
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const raw = e.currentTarget.value.replace(/,/g, "");
+                    if (raw !== "" && !/^\d+$/.test(raw)) return;
+                    setMonthlyAdditionalPayment(raw === "" ? 0 : Number(raw));
                   }}
                 ></input>
               </div>
@@ -206,58 +410,98 @@ const Home=() => {
               <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {t.fullInterestPaymentNAPLabel}
               </div>
-              <div className="mt-1 text-xl font-semibold">{Dollar.format(fullInterestPaymentNAP)}</div>
+              <div className="mt-1 text-xl font-semibold">
+                {Dollar.format(fullInterestPaymentNAP)}
+              </div>
             </div>
             <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
               <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {t.fullInterestPaymentWAPLabel}
               </div>
-              <div className="mt-1 text-xl font-semibold">{Dollar.format(fullInterestPaymentWAP)}</div>
+              <div className="mt-1 text-xl font-semibold">
+                {Dollar.format(fullInterestPaymentWAP)}
+              </div>
             </div>
             <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
               <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {t.fullInterestSavingsLabel}
               </div>
               <div className="mt-1 text-xl font-semibold text-emerald-600 dark:text-emerald-400">
-                {Dollar.format(fullInterestPaymentWAP === 0 ? 0 : fullInterestPaymentNAP - fullInterestPaymentWAP)}
+                {Dollar.format(
+                  fullInterestPaymentWAP === 0
+                    ? 0
+                    : fullInterestPaymentNAP - fullInterestPaymentWAP,
+                )}
               </div>
             </div>
 
-            <button
-              type="button"
-              id="download-pdf"
-              name="download-pdf"
-              disabled={details.length === 0}
-              onClick={() => breakdownRef.current?.downloadPdf({
-                mortgageAmount,
-                interestRate,
-                mortgageLength,
-                numberOfPayments: details.length,
-                monthlyPayment,
-                monthlyAdditionalPayment,
-                fullInterestPaymentNAP,
-                fullInterestPaymentWAP,
-                fullInterestSavings: fullInterestPaymentWAP === 0 ? 0 : fullInterestPaymentNAP - fullInterestPaymentWAP,
-              })}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <Download size={16} />
-              {t.downloadPdfLabel}
-            </button>
+            <div className="flex flex-col gap-3">
+              {sessionStatus === "authenticated" && (
+                <SaveCalculation
+                  disabled={
+                    details.length === 0 || !Number.isInteger(mortgageLength)
+                  }
+                  data={currentInput()}
+                  loaded={loaded}
+                  onSaved={(calc) => {
+                    setLoaded(calc);
+                    setNotice(null);
+                  }}
+                />
+              )}
+              <button
+                type="button"
+                id="download-pdf"
+                name="download-pdf"
+                disabled={details.length === 0}
+                onClick={() =>
+                  breakdownRef.current?.downloadPdf({
+                    mortgageAmount,
+                    interestRate,
+                    mortgageLength,
+                    numberOfPayments: details.length,
+                    monthlyPayment,
+                    monthlyAdditionalPayment,
+                    fullInterestPaymentNAP,
+                    fullInterestPaymentWAP,
+                    fullInterestSavings:
+                      fullInterestPaymentWAP === 0
+                        ? 0
+                        : fullInterestPaymentNAP - fullInterestPaymentWAP,
+                  })
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <Download size={16} />
+                {t.downloadPdfLabel}
+              </button>
+            </div>
           </div>
         </div>
 
         <div ref={breakdownSectionRef}>
           {details.length > 0 && (
-            <PaymentsBreakdown ref={breakdownRef} details={details} onAdditionalPaymentChange={addPayment} />
+            <PaymentsBreakdown
+              ref={breakdownRef}
+              details={details}
+              onAdditionalPaymentChange={addPayment}
+            />
           )}
         </div>
       </main>
 
-      <PayoffJumpButton visible={showPayoffJumpButton} targetPaymentNumber={payoffPaymentNumber} />
+      <PayoffJumpButton
+        visible={showPayoffJumpButton}
+        targetPaymentNumber={payoffPaymentNumber}
+      />
     </>
   );
-}
+};
 
+const Home = () => (
+  <Suspense>
+    <HomeContent />
+  </Suspense>
+);
 
 export default Home;

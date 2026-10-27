@@ -131,6 +131,16 @@ The in-app "Feedback" button (`components/feedback-modal.tsx`) posts to `app/api
 3. Locally, run `vercel link` (if needed) then `vercel env pull .env.local` to pull the same vars — see `.env.local.example` for the expected variable names. No local Postgres install is needed; it's a serverless connection.
 4. Review submissions directly via the Vercel Postgres dashboard's query console — there is no in-app admin view by design (the form itself requires no login).
 
+### Accounts / Saved Calculations Setup
+
+Signing in is optional; the calculator works anonymously. Accounts (email + password, and Google) let users save calculations.
+
+1. Run `db/migrations/001_auth_and_saved_calculations.sql` once in the Neon SQL editor (creates `users`, `accounts`, `auth_tokens`, `saved_calculations`).
+2. Add the auth variables from `.env.local.example` (`AUTH_SECRET`, `APP_URL`, `AUTH_GOOGLE_ID/SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`) locally and in Vercel.
+3. Google: create an OAuth client and add `{APP_URL}/api/auth/callback/google` as an authorized redirect URI (local and production).
+4. Resend: verify a sending domain and use it in `EMAIL_FROM`.
+5. `MAX_SAVED_CALCULATIONS` (default 3) sets the per-user limit.
+
 ---
 
 ## Calculator Logic
@@ -162,3 +172,9 @@ Both the NAP (no additional payments) and WAP (with additional payments) scenari
 - Inputs accept any numeric string; no input masking or validation beyond `Number()` conversion.
 - The final payment of each scenario isn't trued up to land on exactly `$0.00` — because the monthly payment is rounded to the cent, the last row can be off by a few cents (NAP) to a couple dollars (WAP) depending on term length. Cosmetic only; not surfaced in the summary cards.
 - Network drive warning (`Slow filesystem detected`) is expected when the project lives on a network share; move to a local folder for better dev performance.
+
+### Admin user
+
+1. Run `db/migrations/003_admin_role.sql` once in the Neon SQL editor (adds `users.is_admin`).
+2. Promote the single admin manually: `UPDATE users SET is_admin = true WHERE lower(email) = 'you@example.com';`
+3. Sign out and back in; an **Admin** link appears in the account menu and opens `/admin` (user list, sign-in method, email status, hard delete). Admins can't be deleted from the UI.

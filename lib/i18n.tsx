@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { authEn, authEs, type AuthStrings } from '@/lib/i18n-auth'
 
 export type Language = 'en' | 'es'
 
@@ -59,6 +60,7 @@ interface Translations {
     pagoAdicional: string;
   };
   columnsMobile: ColumnLabels;
+  auth: AuthStrings;
 }
 
 const translations: Record<Language, Translations> = {
@@ -123,6 +125,7 @@ const translations: Record<Language, Translations> = {
       remainingBalanceNAP: 'Remaining (No Extra)',
       remainingBalanceWAP: 'Remaining (With Extra)',
     },
+    auth: authEn,
   },
   es: {
     appTitle: 'Calculadora Hipotecaria',
@@ -185,6 +188,7 @@ const translations: Record<Language, Translations> = {
       remainingBalanceNAP: 'Restante (Sin)',
       remainingBalanceWAP: 'Restante (Con)',
     },
+    auth: authEs,
   },
 };
 

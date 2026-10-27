@@ -83,3 +83,16 @@ export function buildAmortizationSchedule({
 
   return { details, fullInterestPaymentNAP, fullInterestPaymentWAP };
 }
+
+/** Standard PMT: fixed monthly payment for a loan amount, annual rate (%) and term in years. */
+export function calcMonthlyPayment(mortgageAmount: number, interestRate: number, mortgageLength: number): number {
+  if (!(mortgageAmount > 0 && interestRate > 0 && mortgageLength > 0)) return 0;
+  //https://superuser.com/questions/871404/what-would-be-the-the-mathematical-equivalent-of-this-excel-formula-pmt
+  const p = Number(mortgageAmount);
+  const r = Number(interestRate) / 100;
+  const t = Number(mortgageLength);
+  const n = 12;
+  const a = p * (r / n);
+  const b = 1 - (1 / Math.pow(1 + (r / n), n * t));
+  return Number((a / b).toFixed(2) || 0);
+}
