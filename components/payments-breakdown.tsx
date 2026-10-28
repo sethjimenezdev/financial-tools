@@ -228,11 +228,11 @@ export const PaymentsBreakdown = forwardRef<
     };
   }, [groups, details.length]);
 
-  // Desktop and mobile both start collapsed; mobile opens year 1 only.
-  const [collapsedDesktop, setCollapsedDesktop] = useState<Set<number>>(
-    () => new Set(groups.map((g) => g.year)),
+  // Both viewports start collapsed (mobile opens year 1 only). They track expanded years so years
+  // that appear later, when the term changes, also start collapsed.
+  const [expandedDesktop, setExpandedDesktop] = useState<Set<number>>(
+    () => new Set(),
   );
-
   const [expandedMobile, setExpandedMobile] = useState<Set<number>>(
     () => new Set([1]),
   );
@@ -249,11 +249,7 @@ export const PaymentsBreakdown = forwardRef<
 
   const expandYear = (year: number) => {
     setExpandedMobile((prev) => new Set(prev).add(year));
-    setCollapsedDesktop((prev) => {
-      const next = new Set(prev);
-      next.delete(year);
-      return next;
-    });
+    setExpandedDesktop((prev) => new Set(prev).add(year));
   };
 
   useEffect(() => {
@@ -535,7 +531,7 @@ export const PaymentsBreakdown = forwardRef<
               </tr>
             </thead>
             {groups.map((g) => {
-              const isOpen = !collapsedDesktop.has(g.year);
+              const isOpen = expandedDesktop.has(g.year);
               return (
                 <tbody key={g.year}>
                   <tr>
@@ -551,7 +547,7 @@ export const PaymentsBreakdown = forwardRef<
                       <button
                         type="button"
                         aria-expanded={isOpen}
-                        onClick={() => toggleIn(setCollapsedDesktop, g.year)}
+                        onClick={() => toggleIn(setExpandedDesktop, g.year)}
                         className="flex w-full items-center gap-3 px-3 py-2 text-start font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
                       >
                         <ChevronDown
