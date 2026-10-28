@@ -96,3 +96,50 @@ export function calcMonthlyPayment(mortgageAmount: number, interestRate: number,
   const b = 1 - (1 / Math.pow(1 + (r / n), n * t));
   return Number((a / b).toFixed(2) || 0);
 }
+
+export interface YearGroup {
+  /** 1-based loan year: payments 1-12 are year 1, 13-24 are year 2, and so on. */
+  year: number;
+  firstPayment: number;
+  lastPayment: number;
+  payments: PaymentDetails[];
+  interestNAP: number;
+  interestWAP: number;
+  endingBalanceNAP: number;
+  endingBalanceWAP: number;
+  hasAdditionalPayment: boolean;
+}
+
+/** Groups a schedule into loan years; the last year may hold fewer than 12 payments. */
+export function groupByYear(details: PaymentDetails[]): YearGroup[] {
+  const groups: YearGroup[] = [];
+
+  for (const d of details) {
+    const year = Math.ceil(d.paymentNumber / 12);
+    let group = groups[groups.length - 1];
+    if (!group || group.year !== year) {
+      group = {
+        year,
+        firstPayment: d.paymentNumber,
+        lastPayment: d.paymentNumber,
+        payments: [],
+        interestNAP: 0,
+        interestWAP: 0,
+        endingBalanceNAP: 0,
+        endingBalanceWAP: 0,
+        hasAdditionalPayment: false,
+      };
+      groups.push(group);
+    }
+
+    group.payments.push(d);
+    group.lastPayment = d.paymentNumber;
+    group.interestNAP += d.interestNAP;
+    group.interestWAP += d.interestWAP;
+    group.endingBalanceNAP = d.remainingBalanceNAP;
+    group.endingBalanceWAP = d.remainingBalanceWAP;
+    if (d.additionalPayment) group.hasAdditionalPayment = true;
+  }
+
+  return groups;
+}

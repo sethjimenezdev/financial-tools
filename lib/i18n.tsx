@@ -34,6 +34,12 @@ interface Translations {
   clearAdditionalPaymentAria: string;
   jumpToPayoffRowAria: string;
   backToTopAria: string;
+  yearLabel: string;
+  paymentsRangeLabel: string;
+  endingBalanceLabel: string;
+  jumpToYearLabel: string;
+  paidOffAtPaymentLabel: string;
+  hasAdditionalPaymentAria: string;
   selectColumnsLabel: string;
   downloadPdfLabel: string;
   generatedOnLabel: string;
@@ -82,6 +88,12 @@ const translations: Record<Language, Translations> = {
     clearAdditionalPaymentAria: 'Clear additional payment',
     jumpToPayoffRowAria: 'Jump to the row where the loan is paid off',
     backToTopAria: 'Back to top',
+    yearLabel: 'Year',
+    paymentsRangeLabel: 'Payments',
+    endingBalanceLabel: 'Ending balance',
+    jumpToYearLabel: 'Jump to year',
+    paidOffAtPaymentLabel: 'Paid off at payment',
+    hasAdditionalPaymentAria: 'Includes additional payments',
     selectColumnsLabel: 'Select the columns to display:',
     downloadPdfLabel: 'Download PDF',
     generatedOnLabel: 'Generated on',
@@ -145,6 +157,12 @@ const translations: Record<Language, Translations> = {
     clearAdditionalPaymentAria: 'Borrar pago adicional',
     jumpToPayoffRowAria: 'Ir a la fila donde se salda el préstamo',
     backToTopAria: 'Volver arriba',
+    yearLabel: 'Año',
+    paymentsRangeLabel: 'Pagos',
+    endingBalanceLabel: 'Saldo final',
+    jumpToYearLabel: 'Ir al año',
+    paidOffAtPaymentLabel: 'Saldado en el pago',
+    hasAdditionalPaymentAria: 'Incluye pagos adicionales',
     selectColumnsLabel: 'Seleccione las columnas a mostrar:',
     downloadPdfLabel: 'Descargar PDF',
     generatedOnLabel: 'Generado el',

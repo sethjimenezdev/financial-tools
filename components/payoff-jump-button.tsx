@@ -7,6 +7,8 @@ import { useLanguage } from '@/lib/i18n'
 interface PayoffJumpButtonProps {
   visible: boolean;
   targetPaymentNumber: number | null;
+  /** Reveals the target row (e.g. expands its year) and scrolls to it. */
+  onReveal?: (paymentNumber: number) => void;
 }
 
 function getPayoffRowElement(paymentNumber: number): HTMLElement | null {
@@ -17,7 +19,7 @@ function getPayoffRowElement(paymentNumber: number): HTMLElement | null {
   return null;
 }
 
-export function PayoffJumpButton({ visible, targetPaymentNumber }: PayoffJumpButtonProps) {
+export function PayoffJumpButton({ visible, targetPaymentNumber, onReveal }: PayoffJumpButtonProps) {
   const { t } = useLanguage();
   const [mode, setMode] = useState<'toPayoff' | 'toTop'>('toPayoff');
   const rafRef = useRef<number | null>(null);
@@ -55,6 +57,10 @@ export function PayoffJumpButton({ visible, targetPaymentNumber }: PayoffJumpBut
   const handleClick = () => {
     if (mode === 'toTop') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (onReveal) {
+      onReveal(targetPaymentNumber);
       return;
     }
     getPayoffRowElement(targetPaymentNumber)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
