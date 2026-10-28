@@ -493,6 +493,7 @@ const HomeContent = () => {
       <PayoffJumpButton
         visible={showPayoffJumpButton}
         targetPaymentNumber={payoffPaymentNumber}
+        onReveal={(n) => breakdownRef.current?.revealPayment(n)}
       />
     </>
   );
